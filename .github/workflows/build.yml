@@ -242,3 +242,105 @@ jobs:
       with:
         name: libideviceactivation-latest_${{ matrix.arch }}-${{ env.dest }}
         path: libideviceactivation.tar
+ideviceactivation state
+pkg config#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+
+// libimobiledevice core headers
+#include <libimobiledevice/libimobiledevice.h>
+#include <libimobiledevice/lockdown.h>
+
+// libideviceactivation header - the exact name might vary slightly.
+// Ensure this header is available in your include path.
+#include <libideviceactivation/libideviceactivation.h> // Or similar, e.g., ideviceactivation.h
+
+int main(int argc, char **argv) {
+    idevice_t device = NULL;
+    lockdownd_client_t lockdown_client = NULL;
+    // The client type for libideviceactivation will be defined in its header.
+    // This is a placeholder name.
+    idevice_activation_client_t activation_client = NULL;
+    char *udid = NULL;
+    int i;
+
+    printf("Attempting to find iOS devices...\n");
+
+    // 1. Discover connected iOS devices
+    char **device_udids = NULL;
+    int device_count = 0;
+    if (idevice_get_device_list(&device_udids, &device_count) < 0) {
+        fprintf(stderr, "ERROR: Could not get the list of connected devices.\n");
+        return -1;
+    }
+
+    if (device_count == 0) {
+        printf("No iOS devices found connected via USB.\n");
+        idevice_device_list_free(device_udids);
+        return 0;
+    }
+
+    printf("Found %d device(s):\n", device_count);
+    for (i = 0; i < device_count; i++) {
+        printf("  %d: %s\n", i + 1, device_udids[i]);
+    }
+
+    // For this example, let's try to connect to the first device found.
+    // In a real application, you might let the user choose or search for a specific UDID.
+    udid = strdup(device_udids[0]);
+    idevice_device_list_free(device_udids); // Free the list returned by idevice_get_device_list
+
+    printf("Attempting to connect to device with UDID: %s\n", udid);
+
+    // 2. Create a device object for the target UDID
+    // IDEVICE_LOOKUP_USBMUX ensures we are looking for USB-connected devices.
+    if (idevice_new_with_options(&device, udid, IDEVICE_LOOKUP_USBMUX) != IDEVICE_E_SUCCESS) {
+        fprintf(stderr, "ERROR: Could not connect to device with UDID %s. Make sure it's trusted.\n", udid);
+        free(udid);
+        return -1;
+    }
+
+    // 3. Establish a connection with the lockdownd service on the device
+    // The third argument is a label for your client application.
+    if (lockdownd_client_new_with_handshake(device, &lockdown_client, "my_activation_checker_app") != LOCKDOWN_E_SUCCESS) {
+        fprintf(stderr, "ERROR: Could not connect to lockdownd on device %s.\n", udid);
+        idevice_free(device);
+        free(udid);
+        return -1;
+    }
+    printf("Successfully connected to lockdownd service.\n");
+
+    // 4. Use libideviceactivation
+    // The following is conceptual and depends on the actual API provided by libideviceactivation.h
+    // You'll need to refer to that header for actual function names, parameter types, and return values.
+
+    // Hypothetical: Create an activation service client
+    // The 'lockdown_client' might be passed directly, or you might need to start a specific service first.
+    // idevice_activation_error_t act_err; // Hypothetical error type from libideviceactivation
+    // act_err = idevice_activation_client_new(device, lockdown_client, &activation_client);
+
+    // For example, if libideviceactivation uses a service descriptor:
+    lockdownd_service_descriptor_t service = NULL;
+    // The service name for activation needs to be known from libideviceactivation documentation or examples.
+    // It might be something like "com.apple.mobileactivationd" or a custom one for libideviceactivation.
+    // This is a placeholder:
+    const char* activation_service_name = "com.apple.mobileactivationd"; // This is a guess, check docs!
+
+    if (lockdownd_start_service(lockdown_client, activation_service_name, &service) != LOCKDOWN_E_SUCCESS || service == NULL || service->port == 0) {
+        fprintf(stderr, "ERROR: Could not start the activation service '%s' on device %s.\n", activation_service_name, udid);
+        lockdownd_client_free(lockdown_client);
+        idevice_free(device);
+        free(udid);
+        if (service) lockdownd_service_descriptor_free(service);
+        return -1;
+    }
+    printf("Successfully started activation service on port %d.\n", service->port);
+
+    // Hypothetical: Create an activation client using the service
+    idevice_activation_error_t act_err; // Assuming this enum/type exists
+    act_err = idevice_activation_client_new(device, service, &activation_client); // Pass device and service
+
+    install libimoibiledevices-utils
+        
+    
+
